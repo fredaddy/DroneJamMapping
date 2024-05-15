@@ -1,0 +1,16 @@
+name: cs234_assignment3
+channels:
+  - defaults
+dependencies:
+  - cython<3
+  - numpy
+  - matplotlib
+  - scipy
+  - tqdm
+  - pip:
+    - gym==0.17.2
+    - stable-baselines3==2.3.0
+    - shimmy>=0.2.1
+    - mujoco-py>=2.1,<2.2
+    - moviepy
+    - torch
