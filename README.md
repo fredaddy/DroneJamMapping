@@ -5,6 +5,7 @@ Reinforcement Learning module that trains a drone (agent) to identify point-sour
 
 ```python
 from stable_baselines3 import PPO
+import DroneJamEnv
 
 # Create and wrap the environment
 env = DroneJammingEnv()
