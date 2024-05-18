@@ -1,11 +1,12 @@
+
+### DroneJammingEnv.py
+
+```python
 import gym
 import numpy as np
 import pybullet as p
 import pybullet_data
-import time
 from gym import spaces
-from stable_baselines3 import PPO
-import cv2
 
 class DroneJammingEnv(gym.Env):
     def __init__(self):
@@ -99,12 +100,3 @@ class DroneJammingEnv(gym.Env):
         img_arr = p.getCameraImage(640, 480, view_matrix, proj_matrix)
         w, h, rgb, depth, seg = img_arr
         return np.reshape(rgb, (h, w, 4))
-
-# Test the environment
-env = DroneJammingEnv()
-obs = env.reset()
-done = False
-while not done:
-    obs, reward, done, info = env.step(env.action_space.sample())
-    env.render()
-    time.sleep(1.0 / 240.0)
