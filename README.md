@@ -8,7 +8,6 @@ First, install the required dependencies:
 ```bash
 pip install pybullet gym stable-baselines3 opencv-python
 ```
-# Usage
 ## Training the model
 
 ```python
