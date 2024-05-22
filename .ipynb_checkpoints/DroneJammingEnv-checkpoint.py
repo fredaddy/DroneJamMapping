@@ -63,13 +63,19 @@ class DroneJammingEnv(gym.Env):
         # Get observation
         obs = self._get_obs()
         
-        # Calculate reward
+        # Calculate Signal Reward
         distance = np.linalg.norm(self.drone_position - self.jamming_source)
         signal_strength = self.jamming_power / (distance ** 2)
         noise = np.random.normal(0, 0.05 * signal_strength)
         signal_strength += noise
         self.signal_strength = signal_strength
-        reward = -distance
+
+        # Calculate Battery Reward
+        movement_penalty = np.linalg.norm(self.drone_position - self.prev_drone_position)
+
+        # Calculate Rewards
+        reward_signal_strength = signal_strength
+        reward_battery = -movement_penalty
 
         # Check if done
         done = False
@@ -79,11 +85,18 @@ class DroneJammingEnv(gym.Env):
         elif distance < self.safe_distance:
             reward = 1000
             done = True
-            
+
+        # Return to origin conditions
+        if self.current_step >= self.max_steps - 100:  # Assuming last 50 steps
+            distance_to_origin = np.linalg.norm(self.drone_position)
+            reward -= distance_to_origin  # Encourages returning to origin
+        
         self.current_step += 1
         if self.current_step > self.max_steps:
             done = True
-
+            
+        self.prev_drone_position = self.drone_position
+            
         return obs, reward, done, {}
 
     def adjust_camera_angle(self):
