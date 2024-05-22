@@ -71,7 +71,7 @@ class DroneJammingEnv(gym.Env):
         self.signal_strength = signal_strength
 
         # Calculate Battery Reward
-        movement_penalty = np.linalg.norm(self.drone_position - self.prev_drone_position)
+        movement_penalty = np.linalg.norm(np.array(self.drone_position) - np.array(self.prev_drone_position))
 
         # Calculate Rewards
         reward_signal_strength = signal_strength
@@ -126,7 +126,7 @@ class DroneJammingEnv(gym.Env):
 
         # Initial drone state
         self.drone_position = np.array([0, 0, 1])
-        self.prev_drone_position = self.drone_position.copy()
+        self.prev_drone_position = np.array([0, 0, 1])
         self.drone_velocity = np.array([0, 0, 0])
         self.current_step = 0
 
