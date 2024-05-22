@@ -125,6 +125,7 @@ class DroneJammingEnv(gym.Env):
 
         # Initial drone state
         self.drone_position = np.array([0, 0, 1])
+        self.prev_drone_position = self.drone_position.copy()
         self.drone_velocity = np.array([0, 0, 0])
         self.current_step = 0
 
