@@ -77,6 +77,7 @@ class DroneJammingEnv(gym.Env):
         reward_signal_strength = signal_strength
         reward_battery = -movement_penalty
 
+        reward = reward_signal_strength + reward_battery
         # Check if done
         done = False
         if (distance < self.dead_distance): #or (self.drone_position[2] <= 0.1):
