@@ -73,11 +73,14 @@ class DroneJammingEnv(gym.Env):
         # Calculate Battery Reward
         movement_penalty = np.linalg.norm(np.array(self.drone_position) - np.array(self.prev_drone_position))
 
+        # Hitting Floor Penalty
+        floor_penalty = -1000 if self.drone_position[2] <= 0.1 else 0
+
         # Calculate Rewards
         reward_signal_strength = signal_strength
         reward_battery = -movement_penalty
 
-        reward = reward_signal_strength + reward_battery
+        reward = reward_signal_strength + reward_battery + floor_penalty
         # Check if done
         done = False
         if (distance < self.dead_distance): #or (self.drone_position[2] <= 0.1):
@@ -117,7 +120,7 @@ class DroneJammingEnv(gym.Env):
 
     def reset(self):
         p.resetSimulation()
-        p.setGravity(0, 0, -9.8)
+        p.setGravity(0, 0, -10)
         p.setTimeStep(self.time_step)
 
         # Reload the plane and drone
@@ -142,8 +145,9 @@ class DroneJammingEnv(gym.Env):
 
     def _apply_action(self, action):
         action = np.clip(action, -1, 1)
-        thrust = (action + 1) * 0.5 * 2 # Scale action to thrust
-        p.applyExternalForce(self.drone, -1, thrust[:3], [0, 0, 0], p.WORLD_FRAME)
+        thrust = (action + 1) * 10 # Scale action to thrust
+        dronePos, droneOrn = p.getBasePositionAndOrientation(self.drone)
+        p.applyExternalForce(self.drone, -1, thrust[:3], dronePos, p.WORLD_FRAME)
         # p.applyExternalForce(self.drone, -1, [0, 0, thrust[0]], [0, 0, 0], p.WORLD_FRAME)
         # p.applyExternalForce(self.drone, -1, [0, 0, thrust[1]], [0, 0, 0], p.WORLD_FRAME)
         # p.applyExternalForce(self.drone, -1, [0, 0, thrust[2]], [0, 0, 0], p.WORLD_FRAME)
