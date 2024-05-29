@@ -6,6 +6,7 @@ import numpy as np
 import pybullet as p
 import pybullet_data
 from gym import spaces
+from stable_baselines3.common.callbacks import BaseCallback
 
 class DroneJammingEnv(gym.Env):
     def __init__(self):
@@ -76,6 +77,8 @@ class DroneJammingEnv(gym.Env):
                 # And start returning to origin
                 distance_to_origin = np.linalg.norm(self.drone_position)
                 reward -= distance_to_origin
+                if distance_to_origin < 0.1:
+                    done = True
             # We blew up something random 
             else:
                 reward = -1e6
@@ -116,7 +119,8 @@ class DroneJammingEnv(gym.Env):
                 done = True
                 
             self.prev_drone_position = self.drone_position
-                
+        print(reward, self.destroyed, done)
+        
         return obs, reward, done, {}
 
     def adjust_camera_angle(self):
@@ -163,6 +167,7 @@ class DroneJammingEnv(gym.Env):
         p.applyExternalForce(self.drone, -1, thrust[:3], dronePos, p.WORLD_FRAME)
 
         # Flag for destroying the jammer. 
+        print(action)
         if action[-1] == 1:
             self.destroyed = True
         self.drone_position, self.drone_velocity = p.getBasePositionAndOrientation(self.drone)
