@@ -154,7 +154,7 @@ class DroneJammingEnv(gym.Env):
                                            cameraTargetPosition=target_position,
                                            cameraUpVector=up_vector)
     
-        p.resetDebugVisualizerCamera(cameraDistance=40, cameraYaw=0, cameraPitch=-30,
+        p.resetDebugVisualizerCamera(cameraDistance=20, cameraYaw=0, cameraPitch=-30,
                                       cameraTargetPosition=target_position)
 
     def reset(self):
@@ -187,7 +187,7 @@ class DroneJammingEnv(gym.Env):
 
     def _apply_action(self, action):
         action = np.clip(action, -1, 1)
-        thrust = (action + 1) * 2 # Scale action to thrust
+        thrust = (action + 1) * 4 # Scale action to thrust
         dronePos, droneOrn = p.getBasePositionAndOrientation(self.drone)
         p.applyExternalForce(self.drone, -1, thrust[:3], dronePos, p.WORLD_FRAME)
 
