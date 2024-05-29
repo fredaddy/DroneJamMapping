@@ -79,13 +79,15 @@ class DroneJammingEnv(gym.Env):
                 # And start returning to origin
                 distance_to_origin = np.linalg.norm(self.drone_position)
                 reward -= distance_to_origin
-                if distance_to_origin < 0.1:
-                    done = True
-                    reward = 1e9
             # We blew up something random 
             else:
-                reward = -1e6
-                done = True
+                reward = -1e8
+                distance_to_origin = np.linalg.norm(self.drone_position)
+                reward -= distance_to_origin
+            if distance_to_origin < 0.1:
+                    done = True
+                    reward = 1e9
+
         else:
             reward = 0
             
@@ -97,8 +99,8 @@ class DroneJammingEnv(gym.Env):
             self.signal_strength = signal_strength
     
             # Calculate Battery Reward
-            movement_penalty = np.linalg.norm(np.array(self.drone_position) - np.array(self.prev_drone_position))
-    
+            #movement_penalty = np.linalg.norm(np.array(self.drone_position) - np.array(self.prev_drone_position))
+            movement_penalty = self.current_step ** 1.5
             # Hitting Floor Penalty
             floor_penalty = -1e3 if self.drone_position[2] <= 0.1 else 0
     
@@ -109,6 +111,7 @@ class DroneJammingEnv(gym.Env):
         
             # Check if dead
             if distance < self.dead_distance:
+                print("too close")
                 reward = -1e6
                 done = True
     
@@ -174,10 +177,6 @@ class DroneJammingEnv(gym.Env):
         if (self.current_step > 20 and action[-1] == 1):
             self.destroyed = True
             dist = np.linalg.norm(self.drone_position - self.jamming_source)
-            print("action: ", action)
-            print("position: ", self.drone_position)
-            print("jammer pos: ", self.jamming_source)
-            print("dist: ", dist)
             if dist < self.bomb_distance:
                 self.correct_destroy = True
                 self.incorrect_destroy = False
