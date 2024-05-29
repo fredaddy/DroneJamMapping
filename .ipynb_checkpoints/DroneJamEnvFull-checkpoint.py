@@ -39,7 +39,7 @@ class DroneJammingEnv(gym.Env):
 
         # Set simulation parameters
         self.time_step = 1.0 / 240.0
-        self.max_steps = 1000
+        self.max_steps = 10000
 
         # Add signal jammer
         self.signal_jammer = p.createVisualShape(
@@ -54,6 +54,8 @@ class DroneJammingEnv(gym.Env):
         )
 
         self.destroyed = False
+        self.correct_destroy = None
+        self.incorrect_destroy = None
 
         self.reset()
 
@@ -72,13 +74,14 @@ class DroneJammingEnv(gym.Env):
         # Check if thing destroyed flag has been raised
         if self.destroyed:
             # If x-y coordinates are within bomb tolerance reward it
-            if np.linalg.norm(self.drone_position[:2] - self.jamming_source[:2]) < self.bomb_distance:
+            if self.correct_destroy:
                 reward = 1e6
                 # And start returning to origin
                 distance_to_origin = np.linalg.norm(self.drone_position)
                 reward -= distance_to_origin
                 if distance_to_origin < 0.1:
                     done = True
+                    reward = 1e9
             # We blew up something random 
             else:
                 reward = -1e6
@@ -110,7 +113,7 @@ class DroneJammingEnv(gym.Env):
                 done = True
     
             # Return to origin conditions
-            if self.current_step >= self.max_steps - 100:  # Start coming back if we're out for too long
+            if self.current_step >= self.max_steps - 1000:  # Start coming back if we're out for too long
                 distance_to_origin = np.linalg.norm(self.drone_position)
                 reward -= distance_to_origin 
             
@@ -119,8 +122,6 @@ class DroneJammingEnv(gym.Env):
                 done = True
                 
             self.prev_drone_position = self.drone_position
-        print(reward, self.destroyed, done)
-        
         return obs, reward, done, {}
 
     def adjust_camera_angle(self):
@@ -149,6 +150,9 @@ class DroneJammingEnv(gym.Env):
         self.prev_drone_position = np.array([0, 0, 0])
         self.drone_velocity = np.array([0, 0, 0])
         self.current_step = 0
+        self.destroyed = False
+        self.correct_destroy = None
+        self.incorrect_destroy = None
 
         # Adjust camera parameters to control FOV
         camera_distance = 2.0  # Example value, adjust as needed
@@ -166,10 +170,20 @@ class DroneJammingEnv(gym.Env):
         dronePos, droneOrn = p.getBasePositionAndOrientation(self.drone)
         p.applyExternalForce(self.drone, -1, thrust[:3], dronePos, p.WORLD_FRAME)
 
-        # Flag for destroying the jammer. 
-        print(action)
-        if action[-1] == 1:
+        # Flag for destroying the jammer, can only be turned on after step 20
+        if (self.current_step > 20 and action[-1] == 1):
             self.destroyed = True
+            dist = np.linalg.norm(self.drone_position - self.jamming_source)
+            print("action: ", action)
+            print("position: ", self.drone_position)
+            print("jammer pos: ", self.jamming_source)
+            print("dist: ", dist)
+            if dist < self.bomb_distance:
+                self.correct_destroy = True
+                self.incorrect_destroy = False
+            else:
+                self.correct_destroy = False
+                self.incorrect_destroy = True
         self.drone_position, self.drone_velocity = p.getBasePositionAndOrientation(self.drone)
 
     def _get_obs(self):
