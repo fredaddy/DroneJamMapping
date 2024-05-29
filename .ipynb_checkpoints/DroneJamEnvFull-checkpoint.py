@@ -1,5 +1,5 @@
 
-### DroneJammingEnv.py
+### DroneJamEnvFull.py
 
 import gym
 import numpy as np
