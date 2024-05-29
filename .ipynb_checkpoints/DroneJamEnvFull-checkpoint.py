@@ -27,7 +27,7 @@ class DroneJammingEnv(gym.Env):
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(7,), dtype=np.float32)
 
         # Load drone model
-        self.drone = p.loadURDF("./quadrotor.urdf", [0, 0, 0])
+        self.drone = p.loadURDF("./quadrotor.urdf", [0, 0, 1])
 
         # Initialize jamming source to be random
         #self.jamming_source = np.random.rand(3) * 10 + 5
@@ -79,12 +79,12 @@ class DroneJammingEnv(gym.Env):
             if self.correct_destroy:
                 reward = 1e6
                 # And start returning to origin
-                distance_to_origin = np.linalg.norm(self.drone_position)
+                distance_to_origin = np.linalg.norm(self.drone_position - np.array([0, 0, 1])
                 reward -= distance_to_origin
             # We blew up something random 
             else:
                 reward = -1e8
-                distance_to_origin = np.linalg.norm(self.drone_position)
+                distance_to_origin = np.linalg.norm(self.drone_position - np.array([0, 0, 1])
                 reward -= distance_to_origin
             if distance_to_origin < 0.1:
                     done = True
@@ -133,7 +133,7 @@ class DroneJammingEnv(gym.Env):
     
             # Return to origin conditions
             if self.current_step >= self.max_steps - 1000:  # Start coming back if we're out for too long
-                distance_to_origin = np.linalg.norm(self.drone_position)
+                distance_to_origin = np.linalg.norm(self.drone_position - np.array([0, 0, 1])
                 reward -= distance_to_origin 
             
             self.current_step += 1
@@ -164,11 +164,11 @@ class DroneJammingEnv(gym.Env):
 
         # Reload the plane and drone
         p.loadURDF("plane.urdf")
-        self.drone = p.loadURDF("quadrotor.urdf", [0, 0, 0])
+        self.drone = p.loadURDF("quadrotor.urdf", [0, 0, 1])
 
         # Initial drone state
-        self.drone_position = np.array([0, 0, 0])
-        self.prev_drone_position = np.array([0, 0, 0])
+        self.drone_position = np.array([0, 0, 1])
+        self.prev_drone_position = np.array([0, 0, 1])
         self.drone_velocity = np.array([0, 0, 0])
         self.current_step = 0
         self.destroyed = False
