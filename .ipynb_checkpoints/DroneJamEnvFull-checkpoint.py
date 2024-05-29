@@ -101,13 +101,17 @@ class DroneJammingEnv(gym.Env):
             # Calculate Battery Reward
             #movement_penalty = np.linalg.norm(np.array(self.drone_position) - np.array(self.prev_drone_position))
             movement_penalty = self.current_step ** 1.5
-            # Hitting Floor Penalty
-            floor_penalty = -1e3 if self.drone_position[2] <= 0.1 else 0
+            
+            # Height Penalty
+            if 0.1 <= self.drone_position[2] <= 2:
+                height_reward = 1e3
+            else:
+                height_reward = -1e3
     
             # Calculate Rewards
             reward_signal_strength = signal_strength
             reward_battery = -movement_penalty
-            reward += reward_signal_strength + reward_battery + floor_penalty
+            reward += reward_signal_strength + reward_battery + height_reward
         
             # Check if dead
             if distance < self.dead_distance:
@@ -123,6 +127,8 @@ class DroneJammingEnv(gym.Env):
             self.current_step += 1
             if self.current_step > self.max_steps:
                 done = True
+                if not self.correct_destroy:
+                    reward = -1e9                    
                 
             self.prev_drone_position = self.drone_position
         return obs, reward, done, {}
