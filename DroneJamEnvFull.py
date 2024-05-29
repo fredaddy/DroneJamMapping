@@ -146,32 +146,16 @@ class DroneJammingEnv(gym.Env):
         return obs, reward, done, {}
         
     def adjust_camera_angle(self):
-        map_center = [0, 0, 0]
-        map_size = 20 
+        camera_position = [0, 0, 5]
+        target_position = self.drone_position
+        up_vector = [0, 0, 1] 
     
-        camera_distance = map_size * 1.5 
-        camera_position = [map_center[0], map_center[1], camera_distance]
-        target_position = map_center
-        up_vector = [0, 0, 1]
-        
         view_matrix = p.computeViewMatrix(cameraEyePosition=camera_position,
-                                          cameraTargetPosition=target_position,
-                                          cameraUpVector=up_vector)
+                                           cameraTargetPosition=target_position,
+                                           cameraUpVector=up_vector)
     
-        p.resetDebugVisualizerCamera(cameraDistance=camera_distance, cameraYaw=0, cameraPitch=-90,
-                                     cameraTargetPosition=target_position)
-
-    # def adjust_camera_angle(self):
-    #     camera_position = [self.drone_position[0], self.drone_position[1], 5]
-    #     target_position = self.drone_position
-    #     up_vector = [0, 0, 1] 
-    
-    #     view_matrix = p.computeViewMatrix(cameraEyePosition=camera_position,
-    #                                        cameraTargetPosition=target_position,
-    #                                        cameraUpVector=up_vector)
-    
-    #     p.resetDebugVisualizerCamera(cameraDistance=5, cameraYaw=0, cameraPitch=-30,
-    #                                   cameraTargetPosition=target_position)
+        p.resetDebugVisualizerCamera(cameraDistance=40, cameraYaw=0, cameraPitch=-30,
+                                      cameraTargetPosition=target_position)
 
     def reset(self):
         p.resetSimulation()
@@ -203,7 +187,7 @@ class DroneJammingEnv(gym.Env):
 
     def _apply_action(self, action):
         action = np.clip(action, -1, 1)
-        thrust = (action + 1) * 10 # Scale action to thrust
+        thrust = (action + 1) * 2 # Scale action to thrust
         dronePos, droneOrn = p.getBasePositionAndOrientation(self.drone)
         p.applyExternalForce(self.drone, -1, thrust[:3], dronePos, p.WORLD_FRAME)
 
