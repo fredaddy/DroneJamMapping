@@ -79,12 +79,12 @@ class DroneJammingEnv(gym.Env):
             if self.correct_destroy:
                 reward = 1e6
                 # And start returning to origin
-                distance_to_origin = np.linalg.norm(self.drone_position - np.array([0, 0, 1])
+                distance_to_origin = np.linalg.norm(self.drone_position - np.array([0, 0, 1]))
                 reward -= distance_to_origin
             # We blew up something random 
             else:
                 reward = -1e8
-                distance_to_origin = np.linalg.norm(self.drone_position - np.array([0, 0, 1])
+                distance_to_origin = np.linalg.norm(self.drone_position - np.array([0, 0, 1]))
                 reward -= distance_to_origin
             if distance_to_origin < 0.1:
                     done = True
@@ -133,7 +133,7 @@ class DroneJammingEnv(gym.Env):
     
             # Return to origin conditions
             if self.current_step >= self.max_steps - 1000:  # Start coming back if we're out for too long
-                distance_to_origin = np.linalg.norm(self.drone_position - np.array([0, 0, 1])
+                distance_to_origin = np.linalg.norm(self.drone_position - np.array([0, 0, 1]))
                 reward -= distance_to_origin 
             
             self.current_step += 1
