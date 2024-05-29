@@ -105,10 +105,11 @@ class DroneJammingEnv(gym.Env):
             movement_penalty = self.current_step ** 1.5
             
             # Height Penalty
-            if 0.1 <= self.drone_position[2] <= 2:
+            if 0.1 <= self.drone_position[2] <= 5:
                 height_reward = 1e3
             else:
                 height_reward = -1e3
+                done = True
     
             # Calculate Rewards
             reward_signal_strength = signal_strength
@@ -123,10 +124,12 @@ class DroneJammingEnv(gym.Env):
 
             # Check if out of bounds
             if abs(self.drone_position[0]) > 15:
-                reward += -1e-3
+                reward += -1e-2
+                done = True
 
             if abs(self.drone_position[1]) > 15:
-                reward += -1e-3
+                reward += -1e-2
+                done = True
     
             # Return to origin conditions
             if self.current_step >= self.max_steps - 1000:  # Start coming back if we're out for too long
