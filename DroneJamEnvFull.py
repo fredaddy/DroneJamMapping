@@ -30,7 +30,9 @@ class DroneJammingEnv(gym.Env):
         self.drone = p.loadURDF("./quadrotor.urdf", [0, 0, 0])
 
         # Initialize jamming source to be random
-        self.jamming_source = np.random.rand(3) * 10 + 5
+        #self.jamming_source = np.random.rand(3) * 10 + 5
+
+        self.jamming_source = np.array([5, 5, 1])
         self.jamming_power = 10_000  # 10 kilowatts
         self.signal_strength = 0 # to be added when steps.
 
@@ -116,8 +118,15 @@ class DroneJammingEnv(gym.Env):
             # Check if dead
             if distance < self.dead_distance:
                 print("too close")
-                reward = -1e6
+                reward += -1e6
                 done = True
+
+            # Check if out of bounds
+            if abs(self.drone_position[0]) > 15:
+                reward += -1e-3
+
+            if abs(self.drone_position[1]) > 15:
+                reward += -1e-3
     
             # Return to origin conditions
             if self.current_step >= self.max_steps - 1000:  # Start coming back if we're out for too long
@@ -128,7 +137,7 @@ class DroneJammingEnv(gym.Env):
             if self.current_step > self.max_steps:
                 done = True
                 if not self.correct_destroy:
-                    reward = -1e9                    
+                    reward += -1e9                    
                 
             self.prev_drone_position = self.drone_position
         return obs, reward, done, {}
