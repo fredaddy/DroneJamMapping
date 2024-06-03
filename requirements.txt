@@ -1,4 +1,8 @@
 pybullet
 gym
-stable-baselines3
+stable-baselines3[extra]
 opencv-python
+jupyter
+numpy
+shimmy>=0.2.1
+gymnasium

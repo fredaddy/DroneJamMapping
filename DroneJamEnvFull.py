@@ -1,63 +1,34 @@
-
-### DroneJamEnvFull.py
-
 import gym
 import numpy as np
 import pybullet as p
 import pybullet_data
 from gym import spaces
-from stable_baselines3.common.callbacks import BaseCallback
 
 class DroneJammingEnv(gym.Env):
-    def __init__(self):
+    def __init__(self, action_scale=5):
         super(DroneJammingEnv, self).__init__()
-
-        # Connection to PyBullet
-        try:
-            p.disconnect()
-        except:
-            pass
         self.client = p.connect(p.GUI)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
 
-        # Define action and observation spaces
-        # [dx, dy, dz, flag]
-        self.action_space = spaces.Box(low=-1, high=1, shape=(4,), dtype=np.float32)
-        # [x, y, z, vx, vy, vz, signal_strength]
+        self.action_space = spaces.Box(low=-1, high=1, shape=(3,), dtype=np.float32)
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(7,), dtype=np.float32)
 
-        # Load drone model
-        self.drone = p.loadURDF("./quadrotor.urdf", [0, 0, 1])
+        self.jamming_source = np.array([5, 5, 0])
+        self.jamming_power = 10000
 
-        # Initialize jamming source to be random
-        #self.jamming_source = np.random.rand(3) * 10 + 5
-
-        self.jamming_source = np.array([5, 5, 1])
-        self.jamming_power = 10_000  # 10 kilowatts
-        self.signal_strength = 0 # to be added when steps.
-
-        self.bomb_distance = 2.0
-        self.dead_distance = 1.0
-
-        # Set simulation parameters
         self.time_step = 1.0 / 240.0
         self.max_steps = 10000
+        p.setTimeStep(self.time_step)
 
-        # Add signal jammer
-        self.signal_jammer = p.createVisualShape(
-            shapeType=p.GEOM_SPHERE,
-            radius=1.0,
-            rgbaColor=[1, 0, 0, 1],
-            specularColor=[0.4, 0.4, 0],
-        )
-        self.signal_jammer_body = p.createMultiBody(
-            baseVisualShapeIndex=self.signal_jammer,
-            basePosition=self.jamming_source
-        )
+        self.gravity = -10  # m/s^2, Gravity in the negative z-direction
+        self.action_scale = action_scale  # Scaling factor for actions
 
-        self.destroyed = False
-        self.correct_destroy = None
-        self.incorrect_destroy = None
+        # Create the jamming source as a large red sphere
+        self.jamming_visual_shape = p.createVisualShape(p.GEOM_SPHERE, radius=5.0, rgbaColor=[1, 0, 0, 1])
+        self.jamming_visual_body = p.createMultiBody(baseVisualShapeIndex=self.jamming_visual_shape, basePosition=self.jamming_source)
+        print("Jamming source created with body ID:", self.jamming_visual_body)
+
+        self.drone = None
 
         self.reset()
 
@@ -65,181 +36,100 @@ class DroneJammingEnv(gym.Env):
         self._apply_action(action)
         p.stepSimulation()
 
-        # Adjust camera angle
-        self.adjust_camera_angle()
-        
-        # Get observation
         obs = self._get_obs()
+        reward = self._calculate_signal_reward() + self._calculate_stability_reward()
 
-        done = False
-        
-        # Check if thing destroyed flag has been raised
-        if self.destroyed:
-            # If x-y coordinates are within bomb tolerance reward it
-            if self.correct_destroy:
-                reward = 1e6
-                # And start returning to origin
-                distance_to_origin = np.linalg.norm(self.drone_position - np.array([0, 0, 1]))
-                reward -= distance_to_origin
-            # We blew up something random 
-            else:
-                reward = -1e8
-                distance_to_origin = np.linalg.norm(self.drone_position - np.array([0, 0, 1]))
-                reward -= distance_to_origin
-            if distance_to_origin < 0.1:
-                    done = True
-                    reward = 1e9
+        self.current_step += 1
+        done = self.current_step > self.max_steps or self._is_drone_out_of_bounds()
 
-        else:
-            reward = 0
-            
-            # Calculate Signal Reward
-            distance = np.linalg.norm(self.drone_position - self.jamming_source)
-            signal_strength = self.jamming_power / (distance ** 2)
-            noise = np.random.normal(0, 0.1) * signal_strength
-            signal_strength += noise
-            self.signal_strength = signal_strength
-    
-            # Calculate Battery Reward
-            #movement_penalty = np.linalg.norm(np.array(self.drone_position) - np.array(self.prev_drone_position))
-            movement_penalty = self.current_step ** 1.5
-            
-            # Height Penalty
-            if 0.1 <= self.drone_position[2] <= 5:
-                height_reward = 1e3
-            else:
-                height_reward = -1e3
-                done = True
-    
-            # Calculate Rewards
-            reward_signal_strength = signal_strength
-            reward_battery = -movement_penalty
-            reward += reward_signal_strength + reward_battery + height_reward
-        
-            # Check if dead
-            if distance < self.dead_distance:
-                print("too close")
-                reward += -1e6
-                done = True
+        # Ensure the camera view is updated
+        self.render()
 
-            # Check if out of bounds
-            if abs(self.drone_position[0]) > 15:
-                reward += -1e-2
-                done = True
-
-            if abs(self.drone_position[1]) > 15:
-                reward += -1e-2
-                done = True
-    
-            # Return to origin conditions
-            if self.current_step >= self.max_steps - 1000:  # Start coming back if we're out for too long
-                distance_to_origin = np.linalg.norm(self.drone_position - np.array([0, 0, 1]))
-                reward -= distance_to_origin 
-            
-            self.current_step += 1
-            if self.current_step > self.max_steps:
-                done = True
-                if not self.correct_destroy:
-                    reward += -1e9                    
-                
-            self.prev_drone_position = self.drone_position
         return obs, reward, done, {}
-        
-    def adjust_camera_angle(self):
-        camera_position = [0, 0, 5]
-        target_position = self.drone_position
-        up_vector = [0, 0, 1] 
-    
-        view_matrix = p.computeViewMatrix(cameraEyePosition=camera_position,
-                                           cameraTargetPosition=target_position,
-                                           cameraUpVector=up_vector)
-    
-        p.resetDebugVisualizerCamera(cameraDistance=20, cameraYaw=0, cameraPitch=-30,
-                                      cameraTargetPosition=target_position)
 
     def reset(self):
         p.resetSimulation()
         p.setGravity(0, 0, -10)
-        p.setTimeStep(self.time_step)
 
-        # Reload the plane and drone
-        p.loadURDF("plane.urdf")
-        self.drone = p.loadURDF("quadrotor.urdf", [0, 0, 1])
+        # Create a large plane
+        plane_path = pybullet_data.getDataPath() + "/plane.urdf"
+        p.loadURDF(plane_path, basePosition=[0, 0, 0], globalScaling=1)
 
-        # Initial drone state
-        self.drone_position = np.array([0, 0, 1])
-        self.prev_drone_position = np.array([0, 0, 1])
-        self.drone_velocity = np.array([0, 0, 0])
+        # Randomize initial position of the drone within some bounds
+        initial_x = np.random.uniform(-5, 5)
+        initial_y = np.random.uniform(-5, 5)
+        initial_z = np.random.uniform(1, 10)
+        self.drone = p.loadURDF("quadrotor.urdf", [initial_x, initial_y, initial_z])
+
+        # Recreate the jamming source
+        self.jamming_visual_body = p.createMultiBody(baseVisualShapeIndex=self.jamming_visual_shape, basePosition=self.jamming_source)
+        print("Drone and plane created, Jamming source recreated with body ID:", self.jamming_visual_body)
+
         self.current_step = 0
-        self.destroyed = False
-        self.correct_destroy = None
-        self.incorrect_destroy = None
 
-        # Adjust camera parameters to control FOV
-        camera_distance = 2.0  # Example value, adjust as needed
-        camera_target_position = [0, 0, 0]  # Example position, adjust as needed
-        camera_up_vector = [0, 0, 1]  # Example up vector, adjust as needed
-        
-        # Reset camera with adjusted parameters
-        p.resetDebugVisualizerCamera(camera_distance, 45, -30, camera_target_position)
+        # Ensure the camera view is updated
+        self.render()
 
         return self._get_obs()
 
     def _apply_action(self, action):
-        action = np.clip(action, -1, 1)
-        thrust = (action + 1) * 4 # Scale action to thrust
-        dronePos, droneOrn = p.getBasePositionAndOrientation(self.drone)
-        p.applyExternalForce(self.drone, -1, thrust[:3], dronePos, p.WORLD_FRAME)
+        # Convert actions to thrust considering scaling
+        thrust = (action * self.action_scale)
+        dronePos, _ = p.getBasePositionAndOrientation(self.drone)
 
-        # Flag for destroying the jammer, can only be turned on after step 20
-        if (self.current_step > 20 and action[-1] == 1):
-            self.destroyed = True
-            dist = np.linalg.norm(self.drone_position - self.jamming_source)
-            if dist < self.bomb_distance:
-                self.correct_destroy = True
-                self.incorrect_destroy = False
-            else:
-                self.correct_destroy = False
-                self.incorrect_destroy = True
-        self.drone_position, self.drone_velocity = p.getBasePositionAndOrientation(self.drone)
+        # Ensure the drone cannot drop below 10 meters
+        if dronePos[2] < 10:
+            thrust[2] = max(thrust[2], self.gravity * -1)  # Upward thrust if below threshold
+
+        p.applyExternalForce(self.drone, -1, thrust, dronePos, p.WORLD_FRAME)
 
     def _get_obs(self):
-        drone_pos, drone_ori = p.getBasePositionAndOrientation(self.drone)
+        drone_pos, _ = p.getBasePositionAndOrientation(self.drone)
         drone_vel, _ = p.getBaseVelocity(self.drone)
-        obs = np.concatenate([drone_pos, drone_vel, [self.signal_strength]])
+        signal_strength = self._calculate_signal_strength(drone_pos)
+        obs = np.concatenate([drone_pos, drone_vel, [signal_strength]])
         return obs
 
+    def _calculate_signal_strength(self, drone_position):
+        distance = np.linalg.norm(drone_position - self.jamming_source)
+        signal_strength = self.jamming_power / (distance ** 2)
+        return signal_strength
+
+    def _calculate_signal_reward(self):
+        signal_strength = self._calculate_signal_strength(p.getBasePositionAndOrientation(self.drone)[0])
+        return signal_strength
+
+    def _calculate_stability_reward(self):
+        _, drone_vel = p.getBaseVelocity(self.drone)
+        # Penalize large velocities to encourage stability
+        stability_reward = -np.linalg.norm(drone_vel)
+        return stability_reward
+
+    def _is_drone_out_of_bounds(self):
+        drone_pos, _ = p.getBasePositionAndOrientation(self.drone)
+        x, y, z = drone_pos
+        # Check if the drone is off the plane horizontally, below 0, or above 500
+        if x < -50 or x > 50 or y < -50 or y > 50 or z < 0 or z > 500:
+            print("Drone out of bounds:", drone_pos)
+            return True
+        return False
+
     def render(self, mode='human'):
-        p.resetDebugVisualizerCamera(
-            cameraDistance=5, 
-            cameraYaw=0, 
-            cameraPitch=-30, 
-            cameraTargetPosition=self.drone_position
-        )
+        self._adjust_camera_view()
 
-        img_arr = p.getCameraImage(640, 480)
-        rgb = img_arr[2]
+    def _adjust_camera_view(self):
+        drone_pos, _ = p.getBasePositionAndOrientation(self.drone)
+        mid_point = (np.array(drone_pos) + np.array(self.jamming_source)) / 2
+        max_distance = np.linalg.norm(np.array(drone_pos) - np.array(self.jamming_source))
+        camera_distance = max_distance * 2  # Increase camera distance for better visibility
 
-        return rgb
-        # view_matrix = p.computeViewMatrixFromYawPitchRoll(
-        #     cameraTargetPosition=[0, 0, 0],  # Look at origin
-        #     distance=50,
-        #     yaw=90,  # Look along positive x-axis
-        #     pitch=0,  # No pitch
-        #     roll=0,  # No roll
-        #     upAxisIndex=2
-        # )
+        p.resetDebugVisualizerCamera(cameraDistance=camera_distance, cameraYaw=45, cameraPitch=-30, cameraTargetPosition=mid_point)
+        #print("Camera adjusted to mid_point:", mid_point, "with distance:", camera_distance)
 
-        # # Adjust the field of view (FOV) here
-        # fov = 90  # Adjust FOV as needed
-        # aspect_ratio = 640 / 480  # Adjust aspect ratio as needed
-        # proj_matrix = p.computeProjectionMatrixFOV(
-        #     fov=fov, aspect=aspect_ratio, nearVal=0.1, farVal=100.0
-        # )
-
-        # img_arr = p.getCameraImage(640, 480, view_matrix, proj_matrix)
-        # rgb = img_arr[2]
-
-        # return rgb
     def close(self):
         p.disconnect()
+
+# Create an instance of the environment to test
+if __name__ == "__main__":
+    env = DroneJammingEnv()
+    env.reset()
