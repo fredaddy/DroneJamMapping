@@ -88,11 +88,17 @@ class DroneJammingEnv(gym.Env):
         p.applyExternalForce(self.drone, -1, thrust, dronePos, p.WORLD_FRAME)
 
     def _get_obs(self):
-        drone_pos, _ = p.getBasePositionAndOrientation(self.drone)
-        drone_vel, _ = p.getBaseVelocity(self.drone)
-        signal_strength = self._calculate_signal_strength(drone_pos)
-        obs = np.concatenate([drone_pos, drone_vel, [signal_strength]])
-        return obs
+        try:
+            drone_pos, _ = p.getBasePositionAndOrientation(self.drone)
+            drone_vel, _ = p.getBaseVelocity(self.drone)
+            signal_strength = self._calculate_signal_strength(drone_pos)
+            obs = np.concatenate([drone_pos, drone_vel, [signal_strength]])
+            return obs
+        except p.error as e:
+            print(f"Error in _get_obs: {e}")
+            # Handle the error, e.g., return a default observation
+            return np.zeros(self.observation_space.shape)
+
 
     def _calculate_signal_strength(self, drone_position):
         distance = np.linalg.norm(drone_position - self.jamming_source)
