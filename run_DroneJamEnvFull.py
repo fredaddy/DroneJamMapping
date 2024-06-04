@@ -17,17 +17,17 @@ env = DroneJammingEnv()
 model = PPO("MlpPolicy", env, verbose=1, n_steps=256)
 
 # Train the model
-total_timesteps = 100000
+total_timesteps = 1000000
 try:
     model.learn(total_timesteps=total_timesteps, progress_bar=True)
 except Exception as e:
     print(f"Error during training: {e}")
 
 # Save the model
-model.save("ppo_drone")
+model.save("ppo_drone_2")
 
 # Load the model
-model = PPO.load("ppo_drone")
+model = PPO.load("ppo_drone_2")
 
 print("done training")
 

@@ -62,8 +62,8 @@ class DroneJammingEnv(gym.Env):
         self.drone = p.loadURDF("quadrotor.urdf", [initial_x, initial_y, initial_z])
 
         # Randomize jamming source position
-        self.jamming_source = np.random.uniform(-50, 50, size=3)
-        self.jamming_source[2] = 0  # Ensure it stays on the ground plane
+        #self.jamming_source = np.random.uniform(-50, 50, size=3)
+        #self.jamming_source[2] = 0  # Ensure it stays on the ground plane
         p.resetBasePositionAndOrientation(self.jamming_visual_body, self.jamming_source, [0, 0, 0, 1])
 
         self.current_step = 0
