@@ -13,7 +13,7 @@ class DroneJammingEnv(gym.Env):
         self.action_space = spaces.Box(low=-1, high=1, shape=(3,), dtype=np.float32)
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(7,), dtype=np.float32)
 
-        self.jamming_source = np.array([5, 5, 0])
+        self.jamming_source = np.array([50, 50, 0])
         self.jamming_power = 10000
 
         self.time_step = 1.0 / 240.0
@@ -143,7 +143,7 @@ class DroneJammingEnv(gym.Env):
         drone_pos, _ = p.getBasePositionAndOrientation(self.drone)
         x, y, z = drone_pos
         # Check if the drone is off the plane horizontally, below 0, or above 500
-        if x < -1000 or x > 1000 or y < -1000 or y > 1000 or z < 0 or z > 500:
+        if x < -500 or x > 500 or y < -500 or y > 500 or z < 0 or z > 500:
             print("Drone out of bounds:", drone_pos)
             return True
         return False

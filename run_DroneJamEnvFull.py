@@ -1,107 +1,37 @@
-import numpy as np
+import os
+import sys
 from stable_baselines3 import PPO
 from DroneJamEnvFull import DroneJammingEnv
-import matplotlib.pyplot as plt
-import os
-import pybullet as p
+
+# Check if the correct number of arguments is provided
+if len(sys.argv) != 2:
+    print("Usage: python run_DroneJamEnvFull.py <run_name>")
+    sys.exit(1)
+
+# Get the run_name from the command line arguments
+run_name = sys.argv[1]
 
 # Define the path for saving results
-save_path = '/Users/fredaddy/Desktop/DroneJamMapping/results'
-if not os.path.exists(save_path):
-    os.makedirs(save_path)
+save_path = '/Users/fredaddy/Desktop/DroneJamMapping/results/'
+run_path = os.path.join(save_path, run_name)
+
+if not os.path.exists(run_path):
+    os.makedirs(run_path)
 
 # Create the environment
 env = DroneJammingEnv()
 
-# Initialize the PPO agent
-model = PPO("MlpPolicy", env, verbose=1, n_steps=256)
+# Initialize the PPO agent with adjusted parameters
+model = PPO("MlpPolicy", env, verbose=1, n_steps=2048, learning_rate=3e-4, batch_size=64, clip_range=0.2)
 
 # Train the model
 total_timesteps = 1000000
 try:
     model.learn(total_timesteps=total_timesteps, progress_bar=True)
+    # Save the model
+    model.save(os.path.join(run_path, "ppo_drone"))
+    print(f"Model trained and saved successfully in {run_path}.")
 except Exception as e:
     print(f"Error during training: {e}")
 
-# Save the model
-model.save("ppo_drone_2")
-
-# Load the model
-model = PPO.load("ppo_drone_2")
-
-print("done training")
-
-# Evaluate the model
-num_episodes = 100
-all_rewards = []
-all_distances = []
-
-for episode in range(num_episodes):
-    obs = env.reset()
-    done = False
-    ep_rewards = []
-    ep_distances = []
-    while not done:
-        try:
-            action, _ = model.predict(obs, deterministic=True)
-            obs, reward, done, info = env.step(action)
-            ep_rewards.append(reward)
-            current_position = obs[:3]
-            distance = np.linalg.norm(current_position - env.jamming_source)
-            ep_distances.append(distance)
-            env.render()
-        except Exception as e:
-            print(f"Error during episode {episode + 1}: {e}")
-            done = True  # End the episode if an error occurs
-
-    all_rewards.append(ep_rewards)
-    all_distances.append(ep_distances)
-    print(f"Episode {episode + 1}: Reward = {sum(ep_rewards)}, Length = {len(ep_rewards)}")
-
 env.close()
-
-# Aggregate data for plotting
-max_rewards = np.zeros(max(map(len, all_rewards)))
-min_rewards = np.zeros(max(map(len, all_rewards)))
-med_rewards = np.zeros(max(map(len, all_rewards)))
-max_distances = np.zeros(max(map(len, all_distances)))
-min_distances = np.zeros(max(map(len, all_distances)))
-med_distances = np.zeros(max(map(len, all_distances)))
-
-for t in range(len(max_rewards)):
-    iteration_rewards = [rewards[t] for rewards in all_rewards if len(rewards) > t]
-    iteration_distances = [distances[t] for distances in all_distances if len(distances) > t]
-
-    max_rewards[t] = np.max(iteration_rewards)
-    min_rewards[t] = np.min(iteration_rewards)
-    med_rewards[t] = np.median(iteration_rewards)
-    max_distances[t] = np.max(iteration_distances)
-    min_distances[t] = np.min(iteration_distances)
-    med_distances[t] = np.median(iteration_distances)
-
-# Plotting the results
-# Plot rewards
-plt.figure(figsize=(12, 5))
-plt.plot(max_rewards, label='Max Reward')
-plt.plot(min_rewards, label='Min Reward')
-plt.plot(med_rewards, label='Median Reward')
-plt.fill_between(range(len(max_rewards)), min_rewards, max_rewards, alpha=0.2)
-plt.title('High-Med-Low Rewards over Iterations')
-plt.xlabel('Iteration')
-plt.ylabel('Reward')
-plt.legend()
-plt.savefig(os.path.join(save_path, 'high_med_low_rewards_over_iterations.png'))
-plt.close()
-
-# Plot distances
-plt.figure(figsize=(12, 5))
-plt.plot(max_distances, label='Max Distance')
-plt.plot(min_distances, label='Min Distance')
-plt.plot(med_distances, label='Median Distance')
-plt.fill_between(range(len(max_distances)), min_distances, max_distances, alpha=0.2)
-plt.title('High-Med-Low Distance from Target over Iterations')
-plt.xlabel('Iteration')
-plt.ylabel('Distance')
-plt.legend()
-plt.savefig(os.path.join(save_path, 'high_med_low_distance_from_target_over_iterations.png'))
-plt.close()
