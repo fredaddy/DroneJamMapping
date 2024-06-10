@@ -8,7 +8,7 @@ import pybullet as p
 env = DroneJammingEnv(action_scale=5, connection_mode=p.GUI)
 
 # Load the trained model
-model = PPO.load("ppo_drone")
+model = PPO.load("/Users/fredaddy/Desktop/DroneJamMapping/results/learning_rate_3e3_n_steps_1024/ppo_drone")
 
 # Run the simulation
 done = False

@@ -17,7 +17,7 @@ class DroneJammingEnv(gym.Env):
         self.jamming_power = 10000
 
         self.time_step = 1.0 / 240.0
-        self.max_steps = 10000
+        self.max_steps = 1e5
         p.setTimeStep(self.time_step)
 
         self.gravity = -10  # m/s^2, Gravity in the negative z-direction
@@ -41,14 +41,15 @@ class DroneJammingEnv(gym.Env):
 
         obs = self._get_obs()
         reward = self._calculate_signal_reward() + self._calculate_stability_reward()
+        #print(obs, reward)
 
         self.current_step += 1
         done = self.current_step > self.max_steps or self._is_drone_out_of_bounds()
 
-        # Ensure the camera view is updated
         self.render()
 
         return obs, reward, done, {}
+
 
     def reset(self):
         p.resetSimulation()
@@ -108,18 +109,20 @@ class DroneJammingEnv(gym.Env):
     def _calculate_signal_reward(self):
         current_position = p.getBasePositionAndOrientation(self.drone)[0]
         current_signal = self._calculate_signal_strength(current_position)
-        if hasattr(self, 'previous_signal'):
-            # Calculate the change in signal strength
-            delta_signal = current_signal - self.previous_signal
+        
+        # Reward based on signal strength
+        reward = current_signal * 10  # Scale up the reward for high signal strength
 
-            # Reward for increase in signal strength
-            if delta_signal > 0:
-                reward = delta_signal * 10  # Scale up the reward for positive changes
-            else:
-                # Penalize reduction in signal strength to encourage staying at the peak
-                reward = delta_signal * 5  # More moderate scaling for negative changes
-        else:
-            reward = 0  # No previous signal to compare to at the start
+        # Encourage staying close to the source
+        distance_to_source = np.linalg.norm(current_position - self.jamming_source)
+        if distance_to_source <= 11:  # Threshold distance to be considered "above" the source
+            reward += 100  # Constant reward for being very close to the source
+        
+        # Penalize moving away from the source
+        if hasattr(self, 'previous_signal'):
+            delta_signal = current_signal - self.previous_signal
+            if delta_signal < 0:
+                reward += delta_signal * 50  # Higher penalty for decreasing signal strength
         self.previous_signal = current_signal
 
         return reward
@@ -127,23 +130,21 @@ class DroneJammingEnv(gym.Env):
 
     def _calculate_stability_reward(self):
         _, drone_vel = p.getBaseVelocity(self.drone)
-        # Penalize large velocities to encourage stability
         stability_reward = -np.linalg.norm(drone_vel)
 
-        # Calculate the change in z-velocity and penalize large changes
         z_vel_change = drone_vel[2] - self.previous_z_velocity
-        vertical_stability_reward = -10 * (z_vel_change ** 2)  # Scale the penalty as needed
+        vertical_stability_reward = -10 * (z_vel_change ** 2)  # Keep the penalty for vertical instability
 
-        # Update previous z-velocity for next call
         self.previous_z_velocity = drone_vel[2]
 
         return stability_reward + vertical_stability_reward
 
+
     def _is_drone_out_of_bounds(self):
         drone_pos, _ = p.getBasePositionAndOrientation(self.drone)
         x, y, z = drone_pos
-        # Check if the drone is off the plane horizontally, below 0, or above 500
-        if x < -500 or x > 500 or y < -500 or y > 500 or z < 0 or z > 500:
+        # Check if the drone is off the plane horizontally, below 0, or above 100
+        if x < -100 or x > 100 or y < -100 or y > 100 or z < 0 or z > 100:
             print("Drone out of bounds:", drone_pos)
             return True
         return False
